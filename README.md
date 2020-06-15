@@ -11,11 +11,9 @@ Does not properly display the actual relationship between neurons in the network
 
 MRI provides doctors with a 3D model of the brain to identify issues, MLI hopes to achieve the same thing.
 
-This is part of my PHD at QMUL and through experimentation I will attempt to identify 3D structures from neural networks that may give an 
-insight into what to do to improve that specific neural network.
+This is part of my PHD at QMUL and through experimentation I will attempt to identify 3D structures from neural networks that may give an insight into what to do to improve that specific neural network.
 
-I hope to be able to identify such issues as Overfitting, the need for more training, redundant layers/neurons (and the opposite... i.e. the
-need for more layers/neurons), unsuitable structures, incorrect learning rate. And potentially more.
+I hope to be able to identify such issues as Overfitting, the need for more training, redundant layers/neurons (and the opposite... i.e. the need for more layers/neurons), unsuitable structures, incorrect learning rate. And potentially more.
 
 I'll be adding work here as it progresses.
 
