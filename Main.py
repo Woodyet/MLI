@@ -1,5 +1,6 @@
 #import tensorflow as tf
 import copy
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -44,8 +45,8 @@ Weights = [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
            [0.31,0.32, 0.43, 0.24,0.85, 0.56, 0.47, -0.18, 0.99,0.91]]
 
 OrigWeights = copy.deepcopy(Weights)
-
-#scale weights
+'''
+#scale weights #don't think needed#
 maxWeight = float('-inf')
 minWeight = float('inf')
 for weightValuesPerNeuron in Weights:
@@ -65,52 +66,105 @@ for weightValuesPerNeuron in Weights:
         x+=1
             
 #scaled.... Now apply activation function (RELU HERE)
+'''
 
+#apply activation fuction RELU in this case
 for weightValuesPerNeuron in Weights:
     x = 0
     for weightValue in weightValuesPerNeuron:
         if weightValue < 0:
-            weightValuesPerNeuron[x] =0
+            weightValuesPerNeuron[x] = 0
         x+=1
 
-compareWeights(OrigWeights,Weights)
+WeightsPostAct = copy.deepcopy(Weights)
 
+#apply 1/x Dist logic
+
+WeightsPostDistLog = copy.deepcopy(WeightsPostAct)
+
+for item in WeightsPostDistLog:
+    x=0
+    for weight in item:
+        if weight == 0:
+            item[x] = float('inf')
+        else:
+            item[x]=1/weight
+        x+=1
+
+#Find next neuron connection
+#WeightsPostAct  #x
+#WeightsPostDistLog #y
+
+NeuronAngle = copy.deepcopy(WeightsPostDistLog)
+
+i=0
+for item in NeuronAngle:
+    j=0
+    for weight in item:
+        if WeightsPostAct[i][j] > 0:
+            if WeightsPostAct[i][j] < 1:
+                NeuronAngle[i][j] = math.atan(WeightsPostAct[i][j]/WeightsPostDistLog[i][j])
+            elif WeightsPostAct[i][j] > 1:
+                NeuronAngle[i][j] = math.atan(WeightsPostDistLog[i][j]/WeightsPostAct[i][j])
+            elif WeightsPostAct[i][j] == 1:
+                NeuronAngle[i][j] = math.radians(45)
+            else:
+                input("ERROR IN INNER LOOP 1 VALUE" + str(WeightsPostAct[i][j]))
+
+        elif WeightsPostAct[i][j] < 0:
+            if WeightsPostAct[i][j] < -1:
+                NeuronAngle[i][j] = math.atan((WeightsPostAct[i][j]/WeightsPostDistLog[i][j])*-1)*-1
+            elif WeightsPostAct[i][j] > -1:
+                NeuronAngle[i][j] = math.atan((WeightsPostDistLog[i][j]/WeightsPostAct[i][j])*-1)*-1
+            elif WeightsPostAct[i][j] == -1:
+                 NeuronAngle[i][j] = math.radians(45)*-1
+            else:
+                input("ERROR IN INNER LOOP 2 VALUE" + str(WeightsPostAct[i][j]))
+
+        elif WeightsPostAct[i][j] == 0:
+            NeuronAngle[i][j] = 0
+        else:
+            input("ERROR IN OUTER LOOP VALUE" + str(WeightsPostAct[i][j]))
+        j+=1
+    i+=1
+
+
+compareWeights(WeightsPostAct,WeightsPostDistLog)
+
+for layer in NeuronAngle:
+    print(list(map(math.degrees,layer)))
+
+
+#neuron angle is 
+
+'''
+               |  /
+               | /
+               |/  <------ This Angle
+--------------------------------
+ if neg-----> /|
+             / |
+            /  |
+
+45 Degrees is the most "straight" 
+'''
 #assuming first layer draw input shape
-#online code
+
+increment=0
+Layer1X = []
+Layer1Y = []
+
+for _ in Weights:
+    angle = math.radians(increment)
+    Layer1X.append(math.sin(angle))
+    Layer1Y.append(math.cos(angle))
+    increment+=360/len(Weights)
 
 import matplotlib.pyplot as plt
-import matplotlib
-from matplotlib.patches import RegularPolygon
-from matplotlib.collections import PatchCollection
-
 
 fig, ax = plt.subplots()
-patches = []
-
-polygon = RegularPolygon((0,0), numVertices=8, radius=1, orientation=0)
-patches.append(polygon)
-
-p = PatchCollection(patches, cmap=matplotlib.cm.jet, alpha=0.4)
-
-colors = 100*np.random.rand(len(patches))
-p.set_array(np.array(colors))
-
-ax.add_collection(p)
-
+plt.scatter(Layer1X, Layer1Y)
 ax.set_xlim([-1.2,1.2])
 ax.set_ylim([-1.2,1.2])
 
-plt.show()
-
-
-#Plotting a circle using complex numbers
-#The idea: multiplying a point by complex exponential (enter image description here) rotates the point on a circle
-
-num_pts=len(Weights) # number of points on the circle
-ps = np.arange(num_pts)
-# j = np.sqrt(-1)
-pts = (np.exp(2j*np.pi/num_pts)**ps)
-fig, ax = plt.subplots(1)
-ax.plot(pts.real, pts.imag , 'o')
-ax.set_aspect(1)
 plt.show()
