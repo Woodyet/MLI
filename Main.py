@@ -30,6 +30,38 @@ def compareWeights(OrigWeights,Weights):
         x+=1
 
 
+# check if two circles touch 
+# each other or not. 
+  
+def doCirclesCollide(x1, y1, x2, y2, r1, r2): 
+    distSq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);  
+    radSumSq = (r1 + r2) * (r1 + r2);  
+    if (distSq == radSumSq): 
+        return 1 #touching
+    elif (distSq > radSumSq): 
+        return -1 #undershot
+    else: 
+        return 0 #overshot
+
+
+def checkForOverlappingCircles(Layer1X,Layer1Y,radius):
+    leave = False
+    for i in range(len(radius)):
+        if radius[i] > 0:
+            for j in range(len(radius)):
+                if radius[j] > 0:
+                    if i != j:
+                        res = doCirclesCollide(Layer1X[i], Layer1Y[i], Layer1X[j], Layer1Y[j], radius[i], radius[j])
+                        if (res == 1):
+                            print("touchers!")
+                            return(1)
+                        elif (res == 0):
+                            print("overshoot!")
+                            return(0)
+
+    print("Undershot")
+    return -1
+
 ''' Testing Weights'''
 
 
@@ -129,10 +161,10 @@ for item in NeuronAngle:
     i+=1
 
 
-compareWeights(WeightsPostAct,WeightsPostDistLog)
+#compareWeights(WeightsPostAct,WeightsPostDistLog)
 
-for layer in NeuronAngle:
-    print(list(map(math.degrees,layer)))
+#for layer in NeuronAngle:
+#    print(list(map(math.degrees,layer)))
 
 
 #neuron angle is 
@@ -150,6 +182,7 @@ for layer in NeuronAngle:
 '''
 #assuming first layer draw input shape
 
+
 increment=0
 Layer1X = []
 Layer1Y = []
@@ -160,11 +193,90 @@ for _ in Weights:
     Layer1Y.append(math.cos(angle))
     increment+=360/len(Weights)
 
-import matplotlib.pyplot as plt
-
+###Just a sanity check
+'''
 fig, ax = plt.subplots()
 plt.scatter(Layer1X, Layer1Y)
 ax.set_xlim([-1.2,1.2])
 ax.set_ylim([-1.2,1.2])
 
 plt.show()
+'''
+####Expand each point####
+ 
+projectionToLayer2 = []
+
+#just for first neuron for now
+
+projectionAmount = 0.0001
+angle = []
+
+for neuronAngles in NeuronAngle:
+    try:  #DEAL WITH / 0
+        angle.append(math.tan(neuronAngles[0]))
+    except:
+        angle.append(0)
+
+minAngleAboveZero = min(i for i in angle if i > 0)
+
+initialProjection = minAngleAboveZero    #this is to produce a largest radius of 1
+
+radius = copy.deepcopy(angle)
+for i in range(len(radius)):
+    try: #DEAL WITH / 0
+        radius[i] = initialProjection/radius[i]
+    except:
+        radius[i] = 0
+
+#check... if undershoot then do again at higher projection (current + current/10)
+def increaseProjection(Layer1X,Layer1Y,angle,initialProjection):
+    radius = copy.deepcopy(angle)
+    for i in range(len(radius)):
+        try: #DEAL WITH / 0
+            radius[i] = initialProjection/radius[i]
+        except:
+            radius[i] = 0
+    res = checkForOverlappingCircles(Layer1X,Layer1Y,radius)
+    if res == -1:
+        initialProjection += initialProjection/10
+        return radius,initialProjection,-1 #under
+    elif res == 0:
+        initialProjection -= initialProjection/7
+        return radius,initialProjection,0 #over
+    else:
+        return radius,initialProjection,1 #perf
+
+
+#-1 call increaseProjection
+#0 call decreaseProjection
+#1 stop
+
+#next=-1
+
+#while(next!=1):
+#    radius,initialProjection,next = increaseProjection(Layer1X,Layer1Y,angle,initialProjection)
+
+
+
+
+fig, ax = plt.subplots()
+
+for i in range(len(Layer1X)):
+    if radius[i] > 0:
+        circle1 = plt.Circle((Layer1X[i], Layer1Y[i]), radius[i], color = 'r')
+        ax.add_artist(circle1)
+
+
+ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+
+plt.show()
+
+
+
+
+
+
+print("OKAY")
+
+
