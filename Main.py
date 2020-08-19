@@ -186,11 +186,13 @@ for item in NeuronAngle:
 increment=0
 Layer1X = []
 Layer1Y = []
+Layer1Z = []
 
 for _ in Weights:
     angle = math.radians(increment)
     Layer1X.append(math.sin(angle))
     Layer1Y.append(math.cos(angle))
+    Layer1Z.append(0)
     increment+=360/len(Weights)
 
 ###Just a sanity check
@@ -257,6 +259,21 @@ def increaseProjection(Layer1X,Layer1Y,angle,initialProjection):
 #    radius,initialProjection,next = increaseProjection(Layer1X,Layer1Y,angle,initialProjection)
 
 
+#for each point find distance to each other point in the x y
+#also find distance in z
+
+'''
+eqn
+
+L = ( d-w*math.tan(angle2) ) / (math.tan@1 + math.tan@2)
+
+d = xy distance
+w = z difference
+angle 2 must be the higher neuron. ie check that z is > 0
+L = projection required to have the cones touch.
+
+'''
+
 
 
 fig, ax = plt.subplots()
@@ -271,6 +288,50 @@ ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
 ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
 
 plt.show()
+
+xyDistances = []
+zDistances = []
+
+for i in range(len(Layer1X)):
+    eachxy = []
+    eachz = []
+    for j in range(len(Layer1X)):
+        if i != j:
+            x1 = Layer1X[i]
+            x2 = Layer1X[j]
+            y1 = Layer1Y[i]
+            y2 = Layer1Y[j]
+            z1 = Layer1Z[i]
+            z2 = Layer1Z[j]
+
+            xDiff = x1 - x2
+            yDiff = y1 - y2
+            zDiff = z1 - z2
+
+            distD = math.sqrt(xDiff*xDiff+yDiff*yDiff)
+
+            eachxy.append(distD)
+            eachz.append(zDiff)
+        if i == j:
+            eachxy.append(-1)
+            eachz.append(-1)
+
+    xyDistances.append(eachxy)
+    zDistances.append(eachz)
+
+projection = float('inf')
+
+
+for i in range(len(xyDistances)):
+    for j in range(len(xyDistances)):
+        xyDist = xyDistances[i][j]
+        zDiff = zDistances[i][j]
+        if (zDiff >= 0 and xyDist>-1):
+            matchProjection = xyDist - zDiff*(math.tan(angle[j])) / (math.tan(angle[i])+math.tan(angle[j]))
+            if matchProjection < projection:
+                projection = matchProjection
+
+
 
 
 
