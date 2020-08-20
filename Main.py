@@ -29,39 +29,6 @@ def compareWeights(OrigWeights,Weights):
         print("-----")
         x+=1
 
-
-# check if two circles touch 
-# each other or not. 
-  
-def doCirclesCollide(x1, y1, x2, y2, r1, r2): 
-    distSq = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);  
-    radSumSq = (r1 + r2) * (r1 + r2);  
-    if (distSq == radSumSq): 
-        return 1 #touching
-    elif (distSq > radSumSq): 
-        return -1 #undershot
-    else: 
-        return 0 #overshot
-
-
-def checkForOverlappingCircles(Layer1X,Layer1Y,radius):
-    leave = False
-    for i in range(len(radius)):
-        if radius[i] > 0:
-            for j in range(len(radius)):
-                if radius[j] > 0:
-                    if i != j:
-                        res = doCirclesCollide(Layer1X[i], Layer1Y[i], Layer1X[j], Layer1Y[j], radius[i], radius[j])
-                        if (res == 1):
-                            print("touchers!")
-                            return(1)
-                        elif (res == 0):
-                            print("overshoot!")
-                            return(0)
-
-    print("Undershot")
-    return -1
-
 ''' Testing Weights'''
 
 
@@ -206,29 +173,26 @@ plt.show()
 '''
 ####Expand each point####
  
+#set for testing 
+
+#Layer1Z[4] = 0.01
+
+#####
+
 projectionToLayer2 = []
 
 #just for first neuron for now
 
-projectionAmount = 0.0001
-angle = []
 
+angle = []
 for neuronAngles in NeuronAngle:
     try:  #DEAL WITH / 0
         angle.append(math.tan(neuronAngles[0]))
     except:
         angle.append(0)
 
-minAngleAboveZero = min(i for i in angle if i > 0)
+#minAngleAboveZero = min(i for i in angle if i > 0)
 
-initialProjection = minAngleAboveZero    #this is to produce a largest radius of 1
-
-radius = copy.deepcopy(angle)
-for i in range(len(radius)):
-    try: #DEAL WITH / 0
-        radius[i] = initialProjection/radius[i]
-    except:
-        radius[i] = 0
 
 #check... if undershoot then do again at higher projection (current + current/10)
 def increaseProjection(Layer1X,Layer1Y,angle,initialProjection):
@@ -275,66 +239,157 @@ L = projection required to have the cones touch.
 '''
 
 
+def findDistBetweenPoints(Layer1X,Layer1Y,Layer1Z):
+    xyDistances = []
+    zDistances = []
+    for i in range(len(Layer1X)):
+        eachxy = []
+        eachz = []
+        for j in range(len(Layer1X)):
+            if i != j:
+                x1 = Layer1X[i]
+                x2 = Layer1X[j]
+                y1 = Layer1Y[i]
+                y2 = Layer1Y[j]
+                z1 = Layer1Z[i]
+                z2 = Layer1Z[j]
 
-fig, ax = plt.subplots()
+                xDiff = x1 - x2
+                yDiff = y1 - y2
+                zDiff = z1 - z2
 
-for i in range(len(Layer1X)):
-    if radius[i] > 0:
-        circle1 = plt.Circle((Layer1X[i], Layer1Y[i]), radius[i], color = 'r')
-        ax.add_artist(circle1)
+                distD = math.sqrt(xDiff*xDiff+yDiff*yDiff)
 
+                eachxy.append(distD)
+                eachz.append(zDiff)
+            if i == j:
+                eachxy.append(-1)
+                eachz.append(-1)
 
-ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
-ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
-
-plt.show()
-
-xyDistances = []
-zDistances = []
-
-for i in range(len(Layer1X)):
-    eachxy = []
-    eachz = []
-    for j in range(len(Layer1X)):
-        if i != j:
-            x1 = Layer1X[i]
-            x2 = Layer1X[j]
-            y1 = Layer1Y[i]
-            y2 = Layer1Y[j]
-            z1 = Layer1Z[i]
-            z2 = Layer1Z[j]
-
-            xDiff = x1 - x2
-            yDiff = y1 - y2
-            zDiff = z1 - z2
-
-            distD = math.sqrt(xDiff*xDiff+yDiff*yDiff)
-
-            eachxy.append(distD)
-            eachz.append(zDiff)
-        if i == j:
-            eachxy.append(-1)
-            eachz.append(-1)
-
-    xyDistances.append(eachxy)
-    zDistances.append(eachz)
-
-projection = float('inf')
-
-
-for i in range(len(xyDistances)):
-    for j in range(len(xyDistances)):
-        xyDist = xyDistances[i][j]
-        zDiff = zDistances[i][j]
-        if (zDiff >= 0 and xyDist>-1):
-            matchProjection = xyDist - zDiff*(math.tan(angle[j])) / (math.tan(angle[i])+math.tan(angle[j]))
-            if matchProjection < projection:
-                projection = matchProjection
+        xyDistances.append(eachxy)
+        zDistances.append(eachz)
+    return xyDistances,zDistances
 
 
 
+def findMinProjection(xyDistances,zDistances):
+    P = float('inf')
+    below = -1
+    for i in range(len(xyDistances)):
+        for j in range(len(xyDistances)):
+            xyDist = xyDistances[i][j]
+            zDist  = zDistances[i][j]
+            if zDist == 0:
+                aboveSameZ = xyDist * math.tan(angle[j]) * math.tan(angle[i])
+                below = math.tan(angle[j]) + math.tan(angle[i])
+                if below > 0:
+                    calc = aboveSameZ / below
+            else:    #pretty sure this works for both + and - ZD values
+                aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + zDist*math.tan(angle[i])
+                below = math.tan(angle[j]) + math.tan(angle[i])
+                if below > 0:
+                    calc = aboveDiffZ / below
+            if below > 0:
+                if (calc < P and calc > 0):
+                    P = calc
+                    iLow = i
+                    jLow = j      
+    return P, iLow, jLow
+
+def plotNext(angle,Projection,Layer1X,Layer1Y):
+    radius = copy.deepcopy(angle)
+    for i in range(len(radius)):
+        try: #DEAL WITH / 0
+            radius[i] = Projection/radius[i]
+        except:
+            radius[i] = 0
+    fig, ax = plt.subplots()
+    for i in range(len(Layer1X)):
+        if radius[i] > 0:
+            circle1 = plt.Circle((Layer1X[i], Layer1Y[i]), radius[i], color = 'r')
+            ax.add_artist(circle1)
+    ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+    ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+    plt.show()
+    return radius
+
+def get_intercetions(x0, y0, r0, x1, y1, r1):
+    # circle 1: (x0, y0), radius r0
+    # circle 2: (x1, y1), radius r1
+
+    d=math.sqrt((x1-x0)**2 + (y1-y0)**2)
+
+    # non intersecting
+    if d > r0 + r1 :
+        return None
+    # One circle within other
+    if d < abs(r0-r1):
+        return None
+    # coincident circles
+    if d == 0 and r0 == r1:
+        return None
+    else:
+        a=(r0**2-r1**2+d**2)/(2*d)
+        h=math.sqrt(r0**2-a**2)
+        x2=x0+a*(x1-x0)/d   
+        y2=y0+a*(y1-y0)/d   
+        x3=x2+h*(y1-y0)/d     
+        y3=y2-h*(x1-x0)/d 
+
+        x4=x2-h*(y1-y0)/d
+        y4=y2+h*(x1-x0)/d
+
+        return x3, y3, x4, y4
 
 
+def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
+
+    #check if last calc
+    temp = 0
+    for item in angle:
+        if item > 0:
+            temp+=1
+
+    last = True
+    if temp == 2:
+        last = False
+
+    #find distances
+
+    xyDistances,zDistances = findDistBetweenPoints(Layer1X,Layer1Y,Layer1Z)
+
+    #find smallest projection
+
+    minProjection,iFound,jFound = findMinProjection(xyDistances,zDistances)
+
+    #find radius due to projection and plot
+
+    radius = plotNext(angle,minProjection,Layer1X,Layer1Y)
+
+    #find point of circle touching
+
+    xCollision,yCollision,_,_ = get_intercetions(Layer1X[iFound], Layer1Y[iFound], radius[iFound], Layer1X[jFound], Layer1Y[jFound], radius[jFound])
+
+    #find smaller angle remove and move remaining circle
+
+    angle1 = angle[iFound]
+    angle2 = angle[jFound]
+
+    if angle1 < angle2:
+        angle[iFound] = 0
+        Layer1X[jFound] = xCollision
+        Layer1Y[jFound] = yCollision
+    else:
+        angle[jFound] = 0
+        Layer1X[iFound] = xCollision
+        Layer1Y[iFound] = yCollision
+
+    return  angle, Layer1X, Layer1Y, Layer1Z, last
+
+
+keepGoing = True
+while keepGoing == True:
+    angle, Layer1X, Layer1Y, Layer1Z, keepGoing = findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle)
 
 
 
