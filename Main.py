@@ -272,9 +272,9 @@ def findDistBetweenPoints(Layer1X,Layer1Y,Layer1Z):
 
 
 
-def findMinProjection(xyDistances,zDistances):
+def findMinProjection(xyDistances,zDistances,Layer1Z):
     P = float('inf')
-    below = -1
+    below = 0
     for i in range(len(xyDistances)):
         for j in range(len(xyDistances)):
             xyDist = xyDistances[i][j]
@@ -282,14 +282,22 @@ def findMinProjection(xyDistances,zDistances):
             if zDist == 0:
                 aboveSameZ = xyDist * math.tan(angle[j]) * math.tan(angle[i])
                 below = math.tan(angle[j]) + math.tan(angle[i])
-                if below > 0:
+                if below != 0:
                     calc = aboveSameZ / below
-            else:    #pretty sure this works for both + and - ZD values
-                aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + zDist*math.tan(angle[i])
-                below = math.tan(angle[j]) + math.tan(angle[i])
-                if below > 0:
+            else:
+                if Layer1Z[i] < Layer1Z[j] and math.tan(angle[j]) > 0:
+                    #aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + abs(zDist)*math.tan(angle[i])
+                    aboveDiffZ = math.tan(angle[j]) * math.tan(angle[i]) * (xyDist + abs(Layer1Z[j] - Layer1Z[i])/math.tan(angle[j]))
+                    below = math.tan(angle[j]) + math.tan(angle[i])
+                elif Layer1Z[j] < Layer1Z[i] and math.tan(angle[i]) > 0:
+                    #aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + abs(zDist)*math.tan(angle[j])
+                    aboveDiffZ = math.tan(angle[j]) * math.tan(angle[i]) * (xyDist + abs(Layer1Z[i] - Layer1Z[j])/math.tan(angle[i]))
+                    below = math.tan(angle[j]) + math.tan(angle[i])
+                else:
+                    below = 0
+                if below != 0:
                     calc = aboveDiffZ / below
-            if below > 0:
+            if below != 0:
                 if (calc < P and calc > 0):
                     P = calc
                     iLow = i
@@ -343,15 +351,14 @@ def get_intercetions(x0, y0, r0, x1, y1, r1):
 
 
 def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
-
+    last = True
     #check if last calc
     temp = 0
     for item in angle:
         if item > 0:
             temp+=1
-
-    last = True
-    if temp == 2:
+    
+    if temp < 3:
         last = False
 
     #find distances
@@ -360,7 +367,7 @@ def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
 
     #find smallest projection
 
-    minProjection,iFound,jFound = findMinProjection(xyDistances,zDistances)
+    minProjection,iFound,jFound = findMinProjection(xyDistances,zDistances,Layer1Z)
 
     #find radius due to projection and plot
 
@@ -375,14 +382,19 @@ def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
     angle1 = angle[iFound]
     angle2 = angle[jFound]
 
-    if angle1 < angle2:
+    if angle1 < angle2:    
         angle[iFound] = 0
         Layer1X[jFound] = xCollision
         Layer1Y[jFound] = yCollision
+        Layer1Z[iFound] = minProjection + Layer1Z[iFound]
     else:
         angle[jFound] = 0
         Layer1X[iFound] = xCollision
         Layer1Y[iFound] = yCollision
+        Layer1Z[jFound] = minProjection + Layer1Z[jFound]
+
+    
+
 
     return  angle, Layer1X, Layer1Y, Layer1Z, last
 
