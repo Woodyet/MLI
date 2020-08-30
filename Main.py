@@ -4,6 +4,27 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+import time
+
+
+def make_Cone(a,b,c,radi,height,ax):
+    choose=max(radi,height)
+    # Set up the grid in polar
+    theta = np.linspace(0,2*np.pi,90)
+    r = np.linspace(0,choose,50)
+    T, R = np.meshgrid(theta, r)
+
+    # Then calculate X, Y, and Z
+    X = R * np.cos(T) + a
+    Y = R * np.sin(T) + b
+    Z = (np.sqrt((X-a)**2 + (Y-b)**2)/(radi/height)) + c
+
+    # Set the Z values outside your range to NaNs so they aren't plotted
+
+    ax.plot_wireframe(X, Y, Z)
+
+
 #model = tf.keras.models.load_model('MainModel.h5') 
 
 #layersNweights = []
@@ -36,12 +57,12 @@ def compareWeights(OrigWeights,Weights):
 
 
 Weights = [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
-           [-0.1, -0.2, -0.3, -0.4, -0.5, -0.6, -0.7, -0.8, -0.9, -1],
-           [-4 ,-3, -2, -1, -0, 0.5, 1, 2, 3, 4],
-           [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1],
-           [-0.01, -0.02, -0.03, -0.04, -0.05, -0.06, -0.07, -0.08, -0.09, -0.1],
-           [0.31, -0.32, 0.43, 0.24,-0.85, 0.56,-0.47, 0.18,-0.99,-0.91],
-           [0.31,0.32, 0.43, 0.24,0.85, 0.56, 0.47, -0.18, 0.99,0.91]]
+           [0.2, -0.2, -0.3, -0.4, -0.5, -0.6, -0.7, -0.8, -0.9, -1],
+           [0.3 ,-3, -2, -1, -0, 0.5, 1, 2, 3, 4],
+           [0.4, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1],
+           [0.5, -0.02, -0.03, -0.04, -0.05, -0.06, -0.07, -0.08, -0.09, -0.1],
+           [0.6, -0.32, 0.43, 0.24,-0.85, 0.56,-0.47, 0.18,-0.99,-0.91],
+           [0.7, 0.32, 0.43, 0.24,0.85, 0.56, 0.47, -0.18, 0.99,0.91]]
 
 OrigWeights = copy.deepcopy(Weights)
 '''
@@ -270,55 +291,63 @@ def findDistBetweenPoints(Layer1X,Layer1Y,Layer1Z):
         zDistances.append(eachz)
     return xyDistances,zDistances
 
+def line_intersection(line1, line2):
+    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+       raise Exception('lines do not intersect')
+
+    d = (det(*line1), det(*line2))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+    return x, y
 
 
-def findMinProjection(xyDistances,zDistances,Layer1Z):
+def findMinProjection(xyDistances,zDistances,Layer1Z,angle):
     P = float('inf')
-    below = 0
-    for i in range(len(xyDistances)):
-        for j in range(len(xyDistances)):
-            xyDist = xyDistances[i][j]
-            zDist  = zDistances[i][j]
-            if zDist == 0:
-                aboveSameZ = xyDist * math.tan(angle[j]) * math.tan(angle[i])
-                below = math.tan(angle[j]) + math.tan(angle[i])
-                if below != 0:
-                    calc = aboveSameZ / below
-            else:
-                if Layer1Z[i] < Layer1Z[j] and math.tan(angle[j]) > 0:
-                    #aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + abs(zDist)*math.tan(angle[i])
-                    aboveDiffZ = math.tan(angle[j]) * math.tan(angle[i]) * (xyDist + abs(Layer1Z[j] - Layer1Z[i])/math.tan(angle[j]))
-                    below = math.tan(angle[j]) + math.tan(angle[i])
-                elif Layer1Z[j] < Layer1Z[i] and math.tan(angle[i]) > 0:
-                    #aboveDiffZ = xyDist * math.tan(angle[j]) * math.tan(angle[i]) + abs(zDist)*math.tan(angle[j])
-                    aboveDiffZ = math.tan(angle[j]) * math.tan(angle[i]) * (xyDist + abs(Layer1Z[i] - Layer1Z[j])/math.tan(angle[i]))
-                    below = math.tan(angle[j]) + math.tan(angle[i])
-                else:
-                    below = 0
-                if below != 0:
-                    calc = aboveDiffZ / below
-            if below != 0:
-                if (calc < P and calc > 0):
-                    P = calc
+    for i in range(len(Layer1Z)):
+        for j in range(len(Layer1Z)):
+            if i!=j:
+                try:
+                    #line 1
+                    A = [0, Layer1Z[i]]
+                    B = [1/math.tan(angle[i]), Layer1Z[i]+1]
+
+                    #line 2
+                    C = [xyDistances[i][j], Layer1Z[j]]
+                    D = [xyDistances[i][j] - 1/math.tan(angle[j]), Layer1Z[j]+1]
+
+                    _,projection = line_intersection((A, B), (C, D))
+                except:
+                    projection = float('inf')
+                if P > projection:
+                    P = projection
                     iLow = i
-                    jLow = j      
+                    jLow = j
     return P, iLow, jLow
 
-def plotNext(angle,Projection,Layer1X,Layer1Y):
+def plotNext(angle,Projection,Layer1X,Layer1Y,Layer1Z,plot):
     radius = copy.deepcopy(angle)
     for i in range(len(radius)):
+        specProg = Projection
         try: #DEAL WITH / 0
-            radius[i] = Projection/radius[i]
+            radius[i] = specProg/radius[i]
         except:
             radius[i] = 0
-    fig, ax = plt.subplots()
-    for i in range(len(Layer1X)):
-        if radius[i] > 0:
-            circle1 = plt.Circle((Layer1X[i], Layer1Y[i]), radius[i], color = 'r')
-            ax.add_artist(circle1)
-    ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
-    ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
-    plt.show()
+    if plot == True:
+        fig, ax = plt.subplots()
+        for i in range(len(Layer1X)):
+            if radius[i] > 0:
+                circle1 = plt.Circle((Layer1X[i], Layer1Y[i]), radius[i], color = 'r')
+                ax.add_artist(circle1)
+        ax.set_xlim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+        ax.set_ylim([min(Layer1X)-1.2,max(Layer1Y)+1.2])
+        plt.show()
     return radius
 
 def get_intercetions(x0, y0, r0, x1, y1, r1):
@@ -367,11 +396,11 @@ def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
 
     #find smallest projection
 
-    minProjection,iFound,jFound = findMinProjection(xyDistances,zDistances,Layer1Z)
+    minProjection,iFound,jFound = findMinProjection(xyDistances,zDistances,Layer1Z,angle)
 
     #find radius due to projection and plot
 
-    radius = plotNext(angle,minProjection,Layer1X,Layer1Y)
+    radius = plotNext(angle,minProjection,Layer1X,Layer1Y,Layer1Z,False)
 
     #find point of circle touching
 
@@ -379,31 +408,82 @@ def findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle):
 
     #find smaller angle remove and move remaining circle
 
-    angle1 = angle[iFound]
-    angle2 = angle[jFound]
-
-    if angle1 < angle2:    
+    if angle[iFound] < angle[jFound]:    
         angle[iFound] = 0
         Layer1X[jFound] = xCollision
         Layer1Y[jFound] = yCollision
-        Layer1Z[iFound] = minProjection + Layer1Z[iFound]
+        Layer1Z[jFound] = minProjection
     else:
         angle[jFound] = 0
         Layer1X[iFound] = xCollision
         Layer1Y[iFound] = yCollision
-        Layer1Z[jFound] = minProjection + Layer1Z[jFound]
+        Layer1Z[iFound] = minProjection
 
     
 
 
-    return  angle, Layer1X, Layer1Y, Layer1Z, last
+    return  angle, Layer1X, Layer1Y, Layer1Z, last, radius, minProjection
 
 
 keepGoing = True
+
+import xlsxwriter
+
+def output(filename, sheet, list1, list2, list3,list4,list5,list6):
+    workbook   = xlsxwriter.Workbook(filename+'.xlsx')
+    sh = workbook.add_worksheet()
+
+    sh.write('A1', 'angle')
+    sh.write('B1', 'Layer1X')
+    sh.write('C1', 'Layer1Y')
+    sh.write('D1', 'Layer1Z')
+    sh.write('E1', 'radius')
+    sh.write('F1', 'projection')
+    sh.write_column('A2', list1)
+    sh.write_column('B2', list2)
+    sh.write_column('C2', list3)
+    sh.write_column('D2', list4)
+    sh.write_column('E2', list5)
+    sh.write_column('F2', [list6])
+
+
+    workbook.close()
+
+dones = 0
+
+def z_fun(x,y):
+    return np.sin(np.sqrt(x**2+y**2))
+
+def cone(x,y,a,b,c,R):
+    return (np.sqrt((x-a)**2 + (y-b)**2))/R+c
+
+
+
 while keepGoing == True:
-    angle, Layer1X, Layer1Y, Layer1Z, keepGoing = findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle)
+    fig = plt.figure()
+    ax = fig.add_subplot(111,projection='3d') 
+    byTheby = []
+    byTheby.append(copy.deepcopy(Layer1X))
+    byTheby.append(copy.deepcopy(Layer1Y))
+    byTheby.append(copy.deepcopy(Layer1Z))
+    byTheby.append(copy.deepcopy(angle))
+    angle, Layer1X, Layer1Y, Layer1Z, keepGoing, radius, projection = findNeuronLocation(Layer1X,Layer1Y,Layer1Z,angle)
+    byTheby.append(radius)
+    byTheby.append(projection)
+    
+    height=projection
 
+    for i in range(len(byTheby[0])):
+        if byTheby[4][i] != 0:
+            x=byTheby[0][i]
+            y=byTheby[1][i]
+            z=byTheby[2][i]
+            radi=byTheby[4][i]
+            make_Cone(x,y,z,radi,height,ax)
+    
+    print("OKI")
 
+    plt.show()
 
 print("OKAY")
 
